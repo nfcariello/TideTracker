@@ -9,7 +9,7 @@
 ****************************************************************
 ****************************************************************
 '''
-
+import glob
 import sys
 import os
 import time
@@ -161,35 +161,51 @@ def past24(StationID):
     return WaterLevel
 
 def plotOwletData():
-    # Get data from csv
-    df = pd.read_csv('owlet_data.csv')
-    # Get last 24 hours of data
-    df = df.tail(288)
-    # Get time
-    time = df['timestamp']
-    # Get heart rate
-    hr = df['hr']
-    # Get oxygen level
-    ox = df['ox']
-    # Get movement
-    mv = df['mv']
+    # Define the file pattern you're looking for
+    # Define the file pattern you're looking for
+    file_pattern = 'owlet_data_*.csv'
 
-    # Create Plot
-    fig, axs = plt.subplots(figsize=(12, 4))
-    axs.plot(time, hr, color='red')
-    axs.set_ylabel('Heart Rate', color='red')
-    axs.set_xlabel('Time')
-    axs2 = axs.twinx()
-    axs2.plot(time, ox, color='blue')
-    axs2.set_ylabel('Oxygen Level', color='blue')
-    axs3 = axs.twinx()
-    axs3.plot(time, mv, color='green')
-    axs3.set_ylabel('Movement', color='green')
-    plt.title('Owlet Data', fontsize=20)
-    #fontweight="bold",
-    #axs.xaxis.set_tick_params(labelsize=20)
-    #axs.yaxis.set_tick_params(labelsize=20)
-    plt.savefig('images/OwletData.png', dpi=60)
+    # Use glob to list files that match the pattern
+    matching_files = glob.glob(file_pattern)
+
+    # Check if there are matching files
+    if len(matching_files) > 0:
+        # Read the first matching file and store its contents in a DataFrame named 'df'
+        first_matching_file = matching_files[0]
+        df = pd.read_csv(first_matching_file)
+        print(f'Reading file: {first_matching_file}')
+        # Perform your data analysis or processing here using 'df'
+        # Get data from csv
+        # Get last 24 hours of data
+        df = df.tail(288)
+        # Get time
+        time = df['timestamp']
+        # Get heart rate
+        hr = df['hr']
+        # Get oxygen level
+        ox = df['ox']
+        # Get movement
+        mv = df['mv']
+
+        # Create Plot
+        fig, axs = plt.subplots(figsize=(12, 4))
+        axs.plot(time, hr, color='red')
+        axs.set_ylabel('Heart Rate', color='red')
+        axs.set_xlabel('Time')
+        axs2 = axs.twinx()
+        axs2.plot(time, ox, color='blue')
+        axs2.set_ylabel('Oxygen Level', color='blue')
+        axs3 = axs.twinx()
+        axs3.plot(time, mv, color='green')
+        axs3.set_ylabel('Movement', color='green')
+        plt.title('Owlet Data', fontsize=20)
+        # fontweight="bold",
+        # axs.xaxis.set_tick_params(labelsize=20)
+        # axs.yaxis.set_tick_params(labelsize=20)
+        plt.savefig('images/OwletData.png', dpi=60)
+    else:
+        print('No matching files found.')
+
     #plt.show()
 
 # Plot last 24 hours of tide
@@ -463,5 +479,5 @@ while True:
     # Close the template file
     template.close()
 
-    write_to_screen(screen_output_file, 600)
+    write_to_screen(screen_output_file, 10)
     #epd.Clear()
