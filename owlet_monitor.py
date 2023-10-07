@@ -85,7 +85,7 @@ def login():
             owlet_region, region_config.keys()))
     if auth_token is not None and (expire_time > time.time()):
         return
-    log('Logging in')
+    # log('Logging in')
     # authenticate against Firebase, get the JWT.
     # need to pass the X-Android-Package and X-Android-Cert headers because
     # the API key is restricted to the Owlet Android app
@@ -116,13 +116,13 @@ def login():
     # we will re-auth 60 seconds before the token expires
     expire_time = time.time() + r.json()['expires_in'] - 60
     headers['Authorization'] = 'auth_token ' + auth_token
-    log('Auth token %s' % auth_token)
+    # log('Auth token %s' % auth_token)
 
 
 def fetch_dsn():
     global dsn, url_props, url_activate
     if dsn is None:
-        log('Getting DSN')
+        # log('Getting DSN')
         r = sess.get(region_config[owlet_region]
                      ['url_base'] + '/devices.json', headers=headers)
         r.raise_for_status()
@@ -136,7 +136,7 @@ def fetch_dsn():
         for device in devs:
             device_sn = device['device']['dsn']
             dsn.append(device_sn)
-            log('Found Owlet monitor device serial number %s' % device_sn)
+            # log('Found Owlet monitor device serial number %s' % device_sn)
             url_props.append(
                 region_config[owlet_region]['url_base'] + '/dsns/' + device_sn
                 + '/properties.json'
@@ -196,7 +196,7 @@ def record_vitals(p):
             disp += "sock not on"
         else:
             raise FatalError("Unexpected base_station_on=%d" % sock_off)
-    log(disp)
+    # log(disp)
 
 
 def loop():
@@ -210,7 +210,7 @@ def loop():
                 record_vitals(prop)
             time.sleep(10)
         except requests.exceptions.RequestException as e:
-            log('Network error: %s' % e)
+            # log('Network error: %s' % e)
             time.sleep(1)
             sess = requests.session()
 
