@@ -40,7 +40,7 @@ Location specific info required
 ****************************************************************
 '''
 # Start the Owlet Monitor
-owlet_monitor.main()
+# owlet_monitor.main()
 
 # Optional, displayed on top left
 LOCATION = 'East Rockaway, NY'
