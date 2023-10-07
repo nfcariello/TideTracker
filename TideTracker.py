@@ -20,6 +20,9 @@ import noaa_coops as nc
 import matplotlib.pyplot as plt
 import numpy as np
 import datetime as dt
+import config
+import owlet_monitor
+import pandas as pd
 
 sys.path.append('lib')
 from lib.waveshare_epd import epd7in5_V2
@@ -36,6 +39,8 @@ Location specific info required
 
 ****************************************************************
 '''
+# Start the Owlet Monitor
+owlet_monitor.main()
 
 # Optional, displayed on top left
 LOCATION = 'East Rockaway, NY'
@@ -44,7 +49,7 @@ StationID = 'KWO35'
 
 # For weather data
 # Create Account on openweathermap.com and get API key
-API_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+API_KEY = config.API_KEY
 # Get LATITUDE and LONGITUDE of location
 LATITUDE = '40.6415296'
 LONGITUDE = '-73.6656011'
@@ -155,6 +160,37 @@ def past24(StationID):
 
     return WaterLevel
 
+def plotOwletData():
+    # Get data from csv
+    df = pd.read_csv('owlet_data.csv')
+    # Get last 24 hours of data
+    df = df.tail(288)
+    # Get time
+    time = df['timestamp']
+    # Get heart rate
+    hr = df['hr']
+    # Get oxygen level
+    ox = df['ox']
+    # Get movement
+    mv = df['mv']
+
+    # Create Plot
+    fig, axs = plt.subplots(figsize=(12, 4))
+    axs.plot(time, hr, color='red')
+    axs.set_ylabel('Heart Rate', color='red')
+    axs.set_xlabel('Time')
+    axs2 = axs.twinx()
+    axs2.plot(time, ox, color='blue')
+    axs2.set_ylabel('Oxygen Level', color='blue')
+    axs3 = axs.twinx()
+    axs3.plot(time, mv, color='green')
+    axs3.set_ylabel('Movement', color='green')
+    plt.title('Owlet Data', fontsize=20)
+    #fontweight="bold",
+    #axs.xaxis.set_tick_params(labelsize=20)
+    #axs.yaxis.set_tick_params(labelsize=20)
+    plt.savefig('images/OwletData.png', dpi=60)
+    #plt.show()
 
 # Plot last 24 hours of tide
 def plotTide(TideData):
@@ -309,13 +345,13 @@ while True:
 
     # Tide Data
     # Get water level
-    wl_error = True
-    while wl_error == True:
-        try:
-            WaterLevel = past24(StationID)
-            wl_error = False
-        except:
-            display_error('Tide Data')
+    # wl_error = True
+    # while wl_error == True:
+    #     try:
+    #         WaterLevel = past24(StationID)
+    #         wl_error = False
+    #     except:
+    #         display_error('Tide Data')
 
     # plotTide(WaterLevel)
 
@@ -381,9 +417,9 @@ while True:
     draw.line((600,20,600,210), fill='black', width=2)
 
 
-    # Tide Info
+    # Owlet Info
     # Graph
-    tidegraph = Image.open('images/TideLevel.png')
+    tidegraph = Image.open('images/OwletData.png')
     template.paste(tidegraph, (125, 240))
 
     # Large horizontal dividing line
@@ -393,31 +429,31 @@ while True:
     # Daily tide times
     draw.text((30,260), "Today's Tide", font=font22, fill=black)
 
-    # Get tide time predictions
-    hilo_error = True
-    while hilo_error == True:
-        try:
-            hilo_daily = HiLo(StationID)
-            hilo_error = False
-        except:
-            display_error('Tide Prediction')
-
-    # Display tide preditions
-    y_loc = 300 # starting location of list
-    # Iterate over preditions
-    for index, row in hilo_daily.iterrows():
-        # For high tide
-        if row['hi_lo'] == 'H':
-            tide_time = index.strftime("%H:%M")
-            tidestr = "High: " + tide_time
-        # For low tide
-        elif row['hi_lo'] == 'L':
-            tide_time = index.strftime("%H:%M")
-            tidestr = "Low:  " + tide_time
-
-        # Draw to display image
-        draw.text((40,y_loc), tidestr, font=font15, fill=black)
-        y_loc += 25 # This bumps the next prediction down a line
+    # # Get tide time predictions
+    # hilo_error = True
+    # while hilo_error == True:
+    #     try:
+    #         hilo_daily = HiLo(StationID)
+    #         hilo_error = False
+    #     except:
+    #         display_error('Tide Prediction')
+    #
+    # # Display tide preditions
+    # y_loc = 300 # starting location of list
+    # # Iterate over preditions
+    # for index, row in hilo_daily.iterrows():
+    #     # For high tide
+    #     if row['hi_lo'] == 'H':
+    #         tide_time = index.strftime("%H:%M")
+    #         tidestr = "High: " + tide_time
+    #     # For low tide
+    #     elif row['hi_lo'] == 'L':
+    #         tide_time = index.strftime("%H:%M")
+    #         tidestr = "Low:  " + tide_time
+    #
+    #     # Draw to display image
+    #     draw.text((40,y_loc), tidestr, font=font15, fill=black)
+    #     y_loc += 25 # This bumps the next prediction down a line
 
 
     # Save the image for display as PNG
