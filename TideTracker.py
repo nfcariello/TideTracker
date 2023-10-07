@@ -353,6 +353,7 @@ while True:
     #     except:
     #         display_error('Tide Data')
 
+    plotOwletData()
     # plotTide(WaterLevel)
 
 
