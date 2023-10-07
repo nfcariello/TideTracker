@@ -22,7 +22,7 @@ import numpy as np
 import datetime as dt
 
 sys.path.append('lib')
-from waveshare_epd import epd7in5_V2
+from lib.waveshare_epd import epd7in5_V2
 from PIL import Image, ImageDraw, ImageFont
 
 picdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'images')
@@ -38,16 +38,16 @@ Location specific info required
 '''
 
 # Optional, displayed on top left
-LOCATION = ''
+LOCATION = 'East Rockaway, NY'
 # NOAA Station Code for tide data
-StationID = #######
+StationID = 'KWO35'
 
 # For weather data
 # Create Account on openweathermap.com and get API key
 API_KEY = 'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
 # Get LATITUDE and LONGITUDE of location
-LATITUDE = 'XX.XXXXXX'
-LONGITUDE = '-XX.XXXXXX'
+LATITUDE = '40.6415296'
+LONGITUDE = '-73.6656011'
 UNITS = 'imperial'
 
 # Create URL for API call
@@ -90,7 +90,7 @@ def display_error(error_source):
     draw = ImageDraw.Draw(error_image)
     draw.text((100, 150), error_source +' ERROR', font=font50, fill=black)
     draw.text((100, 300), 'Retrying in 30 seconds', font=font22, fill=black)
-    current_time = datetime.now().strftime('%H:%M')
+    current_time = dt.datetime.now().strftime('%H:%M')
     draw.text((300, 365), 'Last Refresh: ' + str(current_time), font = font50, fill=black)
     # Save the error image
     error_image_file = 'error.png'
@@ -317,7 +317,7 @@ while True:
         except:
             display_error('Tide Data')
 
-    plotTide(WaterLevel)
+    # plotTide(WaterLevel)
 
 
     # Open template file
