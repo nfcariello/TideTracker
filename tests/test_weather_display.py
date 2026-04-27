@@ -141,3 +141,36 @@ def test_uv_label():
     assert uv_label(6) == 'High'
     assert uv_label(8) == 'V.High'
     assert uv_label(11) == 'Extreme'
+
+
+# ---------------------------------------------------------------------------
+# Fingerprint
+# ---------------------------------------------------------------------------
+
+def test_fingerprint_is_stable():
+    from weather_display import parse_weather, compute_fingerprint
+    now = datetime(2024, 4, 27, 14, 30)
+    weather = parse_weather(SAMPLE_RESPONSE, now=now)
+    assert compute_fingerprint(weather) == compute_fingerprint(weather)
+
+
+def test_fingerprint_changes_on_temp_change():
+    import copy
+    from weather_display import parse_weather, compute_fingerprint
+    now = datetime(2024, 4, 27, 14, 30)
+    weather_a = parse_weather(SAMPLE_RESPONSE, now=now)
+    modified = copy.deepcopy(SAMPLE_RESPONSE)
+    modified['current']['temperature_2m'] = 85.0
+    weather_b = parse_weather(modified, now=now)
+    assert compute_fingerprint(weather_a) != compute_fingerprint(weather_b)
+
+
+def test_fingerprint_changes_on_code_change():
+    import copy
+    from weather_display import parse_weather, compute_fingerprint
+    now = datetime(2024, 4, 27, 14, 30)
+    weather_a = parse_weather(SAMPLE_RESPONSE, now=now)
+    modified = copy.deepcopy(SAMPLE_RESPONSE)
+    modified['current']['weather_code'] = 61
+    weather_b = parse_weather(modified, now=now)
+    assert compute_fingerprint(weather_a) != compute_fingerprint(weather_b)

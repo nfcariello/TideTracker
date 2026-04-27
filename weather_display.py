@@ -154,3 +154,16 @@ def uv_label(uv):
     if uv < 11:
         return 'V.High'
     return 'Extreme'
+
+
+# ---------------------------------------------------------------------------
+# Change detection
+# ---------------------------------------------------------------------------
+
+def compute_fingerprint(weather):
+    """Hash key weather fields to detect meaningful changes."""
+    parts = [
+        str(round(weather['current']['temperature'])),
+        str(weather['current']['weather_code']),
+    ] + [str(round(h['temp'])) for h in weather['hourly']]
+    return hashlib.md5(','.join(parts).encode()).hexdigest()
