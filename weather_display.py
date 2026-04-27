@@ -220,9 +220,11 @@ def _load_fonts(fontdir):
     path = os.path.join(fontdir, 'Font.ttc')
     return {
         15: ImageFont.truetype(path, 15),
+        18: ImageFont.truetype(path, 18),
         20: ImageFont.truetype(path, 20),
         22: ImageFont.truetype(path, 22),
-        35: ImageFont.truetype(path, 35),
+        24: ImageFont.truetype(path, 24),
+        40: ImageFont.truetype(path, 40),
         60: ImageFont.truetype(path, 60),
     }
 
@@ -244,91 +246,96 @@ def _paste_icon(img, icon_path, cx, y, size):
 def _draw_left_panel(draw, img, weather, icondir, fonts):
     c = weather['current']
     t = weather['today']
-    dt = weather['display_time']  # Eastern time from API, always correct
+    dt = weather['display_time']  # Eastern time from API
 
     x_label = 12
-    x_value = 175
+    x_value = 145
 
-    # Location header with date/time on the same line
+    # Header line 1: location (large) + date (right-aligned, small)
     draw.text((x_label, 8), config.LOCATION, font=fonts[22], fill=BLACK)
-    date_str = dt.strftime('%a %I:%M %p').replace(' 0', ' ')
+    date_str = dt.strftime('%a, %b %d').replace(' 0', ' ')
     bbox = fonts[15].getbbox(date_str)
     draw.text((300 - (bbox[2] - bbox[0]) - 6, 16), date_str, font=fonts[15], fill=BLACK)
 
-    # Condition description
+    # Header line 2: condition (left) + time (right-aligned)
     desc = wmo_description(c['weather_code'])
     draw.text((x_label, 38), desc, font=fonts[15], fill=BLACK)
+    time_str = dt.strftime('%I:%M %p').lstrip('0')
+    bbox = fonts[15].getbbox(time_str)
+    draw.text((300 - (bbox[2] - bbox[0]) - 6, 38), time_str, font=fonts[15], fill=BLACK)
 
-    # Icon (100×100) top-left, temperature to the right
+    # Icon + big temperature
     icon_path = get_icon_path(c['weather_code'], c['is_day'], icondir)
-    _paste_icon(img, icon_path, cx=60, y=60, size=100)
-    draw.text((130, 70), f'{round(c["temperature"])}°F', font=fonts[60], fill=BLACK)
+    _paste_icon(img, icon_path, cx=58, y=60, size=85)
+    draw.text((125, 65), f'{round(c["temperature"])}°F', font=fonts[60], fill=BLACK)
 
-    # Details grid — all consistent font15, including sunrise/sunset
+    # Details — font18, 22px line height, sun row combined
     pairs = [
         ('Feels like', f'{round(c["feels_like"])}°F'),
         ('Wind',       f'{round(c["wind_speed"])} mph'),
         ('Humidity',   f'{c["humidity"]}%'),
         ('High / Low', f'{round(t["high"])}° / {round(t["low"])}°'),
         ('Precip',     f'{t["precip_pct"]}%'),
-        ('Sunrise',    f'↑ {t["sunrise"]}'),
-        ('Sunset',     f'↓ {t["sunset"]}'),
+        ('Sun',        f'↑ {t["sunrise"]}  ↓ {t["sunset"]}'),
     ]
-    y = 167
+    y = 158
     for label, value in pairs:
-        draw.text((x_label, y), label, font=fonts[15], fill=BLACK)
-        draw.text((x_value, y), value, font=fonts[15], fill=BLACK)
-        y += 18
+        draw.text((x_label, y), label, font=fonts[18], fill=BLACK)
+        draw.text((x_value, y), value, font=fonts[18], fill=BLACK)
+        y += 22
 
 
 def _draw_hourly_panel(draw, img, weather, icondir, fonts):
-    """Right panel — 8 hourly columns, full available height, no stats bar."""
-    draw.text((315, 8), 'NEXT 8 HOURS', font=fonts[15], fill=BLACK)
+    """Right panel — 6 hourly columns, full available height."""
+    draw.text((315, 8), 'NEXT 6 HOURS', font=fonts[15], fill=BLACK)
 
-    # Column centers: 337 + i*61 for i=0..7
-    # Available content area: y=30 to y=290 (260px)
-    for i, h in enumerate(weather['hourly']):
-        cx = 337 + i * 61
+    # 6 columns across 493px wide right panel = ~82px each
+    # cx = 307 + 41 + i*82 -> 348, 430, 512, 594, 676, 758
+    hours = weather['hourly'][:6]
+    for i, h in enumerate(hours):
+        cx = 348 + i * 82
 
-        # Time label (font20, larger now)
-        _center_text(draw, cx, 32, h['time'], fonts[20])
+        # Time label (font22)
+        _center_text(draw, cx, 32, h['time'], fonts[22])
 
-        # Icon — bumped from 40 to 60 for legibility
+        # Icon (75×75)
         icon_path = get_icon_path(h['weather_code'], is_day=h.get('is_day', 1), icon_dir=icondir)
-        _paste_icon(img, icon_path, cx=cx, y=62, size=60)
+        _paste_icon(img, icon_path, cx=cx, y=62, size=75)
 
-        # Temperature (font35 — clearly the most important hourly datum)
-        _center_text(draw, cx, 132, f'{round(h["temp"])}°', fonts[35])
+        # Temperature (font40 — the dominant hourly datum)
+        _center_text(draw, cx, 148, f'{round(h["temp"])}°', fonts[40])
 
         # Precipitation %
-        _center_text(draw, cx, 184, f'{h["precip_pct"]}%', fonts[20])
+        _center_text(draw, cx, 213, f'{h["precip_pct"]}%', fonts[22])
 
         # Wind speed
-        _center_text(draw, cx, 213, f'{round(h["wind_speed"])} mph', fonts[15])
+        _center_text(draw, cx, 245, f'{round(h["wind_speed"])} mph', fonts[18])
 
 
 
 def _draw_daily_panel(draw, img, weather, icondir, fonts):
-    draw.text((12, 298), '7-DAY FORECAST', font=fonts[15], fill=BLACK)
+    draw.text((12, 300), '7-DAY FORECAST', font=fonts[15], fill=BLACK)
 
     for i, d in enumerate(weather['daily']):
         cx = 57 + i * 114
 
-        # Day name — underline today
+        # Day name — bumped to font20, underline today
         day_str = d['day']
-        bbox = fonts[15].getbbox(day_str)
+        bbox = fonts[20].getbbox(day_str)
         w = bbox[2] - bbox[0]
         x = cx - w // 2
-        draw.text((x, 318), day_str, font=fonts[15], fill=BLACK)
+        draw.text((x, 320), day_str, font=fonts[20], fill=BLACK)
         if d['is_today']:
-            draw.line([(x, 336), (x + w, 336)], fill=BLACK, width=1)
+            draw.line([(x, 343), (x + w, 343)], fill=BLACK, width=1)
 
+        # Bigger icon (60×60 vs 50×50)
         icon_path = get_icon_path(d['weather_code'], is_day=1, icon_dir=icondir)
-        _paste_icon(img, icon_path, cx=cx, y=340, size=50)
+        _paste_icon(img, icon_path, cx=cx, y=348, size=60)
 
-        _center_text(draw, cx, 394, f'{round(d["high"])}°', fonts[20])
-        _center_text(draw, cx, 416, f'{round(d["low"])}°',  fonts[15])
-        _center_text(draw, cx, 436, f'{d["precip_pct"]}%',  fonts[15])
+        # Bumped temps and precip
+        _center_text(draw, cx, 414, f'{round(d["high"])}°', fonts[24])
+        _center_text(draw, cx, 444, f'{round(d["low"])}°',  fonts[18])
+        _center_text(draw, cx, 466, f'{d["precip_pct"]}%',  fonts[15])
 
 
 def render(weather, picdir, icondir, fontdir):
