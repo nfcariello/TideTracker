@@ -345,3 +345,19 @@ def render(weather, picdir, icondir, fontdir):
     _draw_daily_panel(draw, img, weather, icondir, fonts)
 
     return img
+
+
+# ---------------------------------------------------------------------------
+# Display output
+# ---------------------------------------------------------------------------
+
+def write_to_display(image, epd=None, picdir=None):
+    """Write image to e-ink, or save PNG in dev mode when epd is None."""
+    if epd is None:
+        path = os.path.join(picdir or PICDIR, 'screen_output.png')
+        image.save(path)
+        logging.info(f'Dev mode: saved to {path}')
+        return
+    epd.init()
+    epd.display(epd.getbuffer(image))
+    epd.sleep()

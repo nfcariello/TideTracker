@@ -241,3 +241,15 @@ def test_render_returns_correct_image():
     assert isinstance(result, PILImage.Image)
     assert result.size == (800, 480)
     assert result.mode == '1'
+
+
+# ---------------------------------------------------------------------------
+# write_to_display
+# ---------------------------------------------------------------------------
+
+def test_write_to_display_dev_mode_saves_file(tmp_path):
+    from weather_display import write_to_display
+    from PIL import Image as PILImage
+    img = PILImage.new('1', (800, 480), 255)
+    write_to_display(img, epd=None, picdir=str(tmp_path))
+    assert (tmp_path / 'screen_output.png').exists()
