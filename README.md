@@ -87,8 +87,7 @@ No API key needed — Open-Meteo is free and unauthenticated.
 
 ## How it works
 
-- Polls Open-Meteo every 30 minutes
-- Computes a fingerprint of current temp + weather code + hourly temps
-- Only refreshes the e-ink display if the fingerprint changed
+- Polls Open-Meteo every 30 minutes and refreshes the display on every poll
+- Logs whether the data changed or not (useful for debugging)
 - On API failure: keeps the current display, retries in 5 minutes
-- On startup: always clears and renders immediately
+- On startup: always clears the screen and renders immediately

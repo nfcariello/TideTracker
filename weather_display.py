@@ -399,13 +399,12 @@ def main():
             weather = parse_weather(raw)
             fingerprint = compute_fingerprint(weather)
 
-            if fingerprint != last_fingerprint:
-                logging.info('Weather changed — updating display.')
-                image = render(weather, PICDIR, ICONDIR, FONTDIR)
-                write_to_display(image, epd=epd, picdir=PICDIR)
-                last_fingerprint = fingerprint
-            else:
-                logging.info('No weather change — display unchanged.')
+            changed = fingerprint != last_fingerprint
+            logging.info('Refreshing display (weather %s).',
+                         'changed' if changed else 'unchanged')
+            image = render(weather, PICDIR, ICONDIR, FONTDIR)
+            write_to_display(image, epd=epd, picdir=PICDIR)
+            last_fingerprint = fingerprint
 
             retry_delay = 1800
 
