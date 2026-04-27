@@ -50,9 +50,10 @@ def parse_weather(raw, now=None):
         except ValueError:
             hour_idx = 0
 
-    # Slice 8 hours starting from current hour
+    # Slice 8 hours starting from the NEXT hour (not the current one)
+    start = hour_idx + 1
     hourly = []
-    for i in range(hour_idx, min(hour_idx + 8, len(hourly_raw['time']))):
+    for i in range(start, min(start + 8, len(hourly_raw['time']))):
         t = datetime.fromisoformat(hourly_raw['time'][i])
         hourly.append({
             'time': t.strftime('%I %p').lstrip('0'),
@@ -270,16 +271,16 @@ def _draw_left_panel(draw, img, weather, icondir, fonts):
     draw.text((125, 65), f'{round(c["temperature"])}°F', font=fonts[60], fill=BLACK)
 
     # Details — font18, 22px line height, sun row combined.
-    # Sun times drop AM/PM to fit; arrows make morning/evening obvious.
-    sunrise_short = t['sunrise'].rsplit(' ', 1)[0]   # "6:12 AM" -> "6:12"
-    sunset_short  = t['sunset'].rsplit(' ', 1)[0]
+    # Compact AM/PM as 'a'/'p' to fit within the panel.
+    sunrise_short = t['sunrise'].replace(' AM', 'a').replace(' PM', 'p')
+    sunset_short  = t['sunset'].replace(' AM', 'a').replace(' PM', 'p')
     pairs = [
         ('Feels like', f'{round(c["feels_like"])}°F'),
         ('Wind',       f'{round(c["wind_speed"])} mph'),
         ('Humidity',   f'{c["humidity"]}%'),
         ('High / Low', f'{round(t["high"])}° / {round(t["low"])}°'),
         ('Precip',     f'{t["precip_pct"]}%'),
-        ('Sun',        f'↑ {sunrise_short}   ↓ {sunset_short}'),
+        ('Sun',        f'↑ {sunrise_short}  ↓ {sunset_short}'),
     ]
     y = 158
     for label, value in pairs:

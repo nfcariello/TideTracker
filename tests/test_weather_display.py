@@ -63,9 +63,10 @@ def test_parse_weather_hourly_slice():
     now = datetime(2024, 4, 27, 14, 30)
     result = parse_weather(SAMPLE_RESPONSE, now=now)
 
+    # Hourly starts at the NEXT hour after current, not the current hour itself.
     assert len(result['hourly']) == 8
-    assert result['hourly'][0]['time'] == '2 PM'
-    assert result['hourly'][7]['time'] == '9 PM'
+    assert result['hourly'][0]['time'] == '3 PM'
+    assert result['hourly'][7]['time'] == '10 PM'
 
 
 def test_parse_weather_daily_slice():
