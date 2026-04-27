@@ -91,6 +91,14 @@ def test_parse_weather_today_sunrise_sunset():
     assert result['today']['precip_pct'] == 5
 
 
+def test_parse_weather_display_time_from_api():
+    from weather_display import parse_weather
+    now = datetime(2024, 4, 27, 14, 30)
+    result = parse_weather(SAMPLE_RESPONSE, now=now)
+    # display_time should come from current.time in the API (Eastern), not datetime.now()
+    assert result['display_time'] == datetime(2024, 4, 27, 14, 0)
+
+
 # ---------------------------------------------------------------------------
 # Icon mapping + descriptions
 # ---------------------------------------------------------------------------

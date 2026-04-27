@@ -74,10 +74,11 @@ def parse_weather(raw, now=None):
     sunset_dt = datetime.fromisoformat(daily_raw['sunset'][0])
     # Visibility: Open-Meteo returns meters, convert to miles
     visibility_mi = current_raw['visibility'] / 1609.34
+    # Use the API's current.time (already in local/Eastern timezone) for display
+    display_time = datetime.fromisoformat(current_raw['time'])
 
     return {
         'current': {
-
             'temperature': current_raw['temperature_2m'],
             'feels_like': current_raw['apparent_temperature'],
             'humidity': current_raw['relative_humidity_2m'],
@@ -95,6 +96,7 @@ def parse_weather(raw, now=None):
             'sunrise': sunrise_dt.strftime('%I:%M %p').lstrip('0'),
             'sunset': sunset_dt.strftime('%I:%M %p').lstrip('0'),
         },
+        'display_time': display_time,
         'hourly': hourly,
         'daily': daily,
     }
@@ -237,7 +239,7 @@ def _paste_icon(img, icon_path, cx, y, size):
 def _draw_left_panel(draw, img, weather, icondir, fonts):
     c = weather['current']
     t = weather['today']
-    now = datetime.now()
+    dt = weather['display_time']  # Eastern time from API, always correct
 
     x_label = 12
     x_value = 175
@@ -268,8 +270,8 @@ def _draw_left_panel(draw, img, weather, icondir, fonts):
         draw.text((x_value, y), value, font=fonts[15], fill=BLACK)
         y += 21
 
-    # Date/time stamp at bottom of left panel
-    date_str = now.strftime('%a %b %d  %I:%M %p').replace(' 0', '  ')
+    # Date/time from API response (already Eastern time)
+    date_str = dt.strftime('%a %b %d  %I:%M %p').replace(' 0', '  ')
     draw.text((x_label, 274), date_str, font=fonts[15], fill=BLACK)
 
 
@@ -293,17 +295,21 @@ def _draw_stats_bar(draw, weather, fonts):
     c = weather['current']
     t = weather['today']
 
+    # Stats area: y=157 to y=293 (136px). Center two rows within it.
+    # Label row (small) at y=196, value row (medium) at y=218
     items = [
-        f'UV {round(c["uv_index"])} {uv_label(c["uv_index"])}',
-        f'Vis {round(c["visibility_mi"])}mi',
-        f'Dew {round(c["dew_point"])}°F',
-        f'↑{t["sunrise"]}',
-        f'↓{t["sunset"]}',
+        ('UV INDEX',    f'{round(c["uv_index"])} {uv_label(c["uv_index"])}'),
+        ('VISIBILITY',  f'{round(c["visibility_mi"])} mi'),
+        ('DEW POINT',   f'{round(c["dew_point"])}°F'),
+        ('SUNRISE',     f'↑ {t["sunrise"]}'),
+        ('SUNSET',      f'↓ {t["sunset"]}'),
     ]
-    # 5 items across right panel width 493px, centers at 356,455,554,653,752
-    for i, text in enumerate(items):
+    # 5 items across right panel (x=307–799, width=493)
+    # centers at 356, 455, 554, 653, 752
+    for i, (label, value) in enumerate(items):
         cx = 356 + i * 99
-        _center_text(draw, cx, 200, text, fonts[15])
+        _center_text(draw, cx, 196, label, fonts[15])
+        _center_text(draw, cx, 218, value, fonts[20])
 
 
 def _draw_daily_panel(draw, img, weather, icondir, fonts):
