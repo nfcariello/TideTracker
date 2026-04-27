@@ -1,0 +1,91 @@
+import os
+import sys
+import pytest
+from datetime import datetime, timedelta
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+
+def _make_api_response():
+    start = datetime(2024, 4, 27, 0, 0)
+    times = [(start + timedelta(hours=i)).strftime('%Y-%m-%dT%H:00') for i in range(168)]
+    return {
+        'current': {
+            'time': '2024-04-27T14:00',
+            'temperature_2m': 72.1,
+            'apparent_temperature': 68.3,
+            'relative_humidity_2m': 62,
+            'wind_speed_10m': 8.2,
+            'weather_code': 2,
+            'is_day': 1,
+            'uv_index': 3.0,
+            'visibility': 16093.4,
+            'dew_point_2m': 55.8,
+        },
+        'hourly': {
+            'time': times,
+            'temperature_2m': [60.0 + i * 0.1 for i in range(168)],
+            'weather_code': [2] * 168,
+            'precipitation_probability': [10] * 168,
+            'wind_speed_10m': [8.0] * 168,
+        },
+        'daily': {
+            'time': ['2024-04-27', '2024-04-28', '2024-04-29',
+                     '2024-04-30', '2024-05-01', '2024-05-02', '2024-05-03'],
+            'temperature_2m_max': [76.0, 70.0, 65.0, 68.0, 73.0, 78.0, 72.0],
+            'temperature_2m_min': [58.0, 55.0, 52.0, 54.0, 56.0, 60.0, 58.0],
+            'weather_code': [2, 3, 61, 3, 0, 0, 2],
+            'precipitation_probability_max': [5, 20, 80, 30, 5, 0, 15],
+            'sunrise': ['2024-04-27T06:12'] * 7,
+            'sunset': ['2024-04-27T19:48'] * 7,
+        },
+    }
+
+
+SAMPLE_RESPONSE = _make_api_response()
+
+
+def test_parse_weather_current_fields():
+    from weather_display import parse_weather
+    now = datetime(2024, 4, 27, 14, 30)
+    result = parse_weather(SAMPLE_RESPONSE, now=now)
+
+    assert round(result['current']['temperature']) == 72
+    assert round(result['current']['feels_like']) == 68
+    assert result['current']['humidity'] == 62
+    assert result['current']['weather_code'] == 2
+    assert result['current']['is_day'] == 1
+    assert round(result['current']['visibility_mi']) == 10
+
+
+def test_parse_weather_hourly_slice():
+    from weather_display import parse_weather
+    now = datetime(2024, 4, 27, 14, 30)
+    result = parse_weather(SAMPLE_RESPONSE, now=now)
+
+    assert len(result['hourly']) == 8
+    assert result['hourly'][0]['time'] == '2 PM'
+    assert result['hourly'][7]['time'] == '9 PM'
+
+
+def test_parse_weather_daily_slice():
+    from weather_display import parse_weather
+    now = datetime(2024, 4, 27, 14, 30)
+    result = parse_weather(SAMPLE_RESPONSE, now=now)
+
+    assert len(result['daily']) == 7
+    assert result['daily'][0]['day'] == 'Sat'
+    assert result['daily'][0]['is_today'] is True
+    assert result['daily'][1]['is_today'] is False
+    assert result['daily'][0]['high'] == 76.0
+    assert result['daily'][0]['precip_pct'] == 5
+
+
+def test_parse_weather_today_sunrise_sunset():
+    from weather_display import parse_weather
+    now = datetime(2024, 4, 27, 14, 30)
+    result = parse_weather(SAMPLE_RESPONSE, now=now)
+
+    assert result['today']['sunrise'] == '6:12 AM'
+    assert result['today']['sunset'] == '7:48 PM'
+    assert result['today']['precip_pct'] == 5
