@@ -220,3 +220,24 @@ def test_fetch_weather_raises_on_http_error(monkeypatch):
     monkeypatch.setattr(req, 'get', mock_get)
     with pytest.raises(req.HTTPError):
         fetch_weather()
+
+
+# ---------------------------------------------------------------------------
+# Render
+# ---------------------------------------------------------------------------
+
+def test_render_returns_correct_image():
+    from weather_display import parse_weather, render
+    from PIL import Image as PILImage
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    picdir = os.path.join(base_dir, 'images')
+    icondir = os.path.join(picdir, 'icon')
+    fontdir = os.path.join(base_dir, 'font')
+
+    now = datetime(2024, 4, 27, 14, 30)
+    weather = parse_weather(SAMPLE_RESPONSE, now=now)
+    result = render(weather, picdir, icondir, fontdir)
+
+    assert isinstance(result, PILImage.Image)
+    assert result.size == (800, 480)
+    assert result.mode == '1'

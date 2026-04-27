@@ -199,3 +199,149 @@ def fetch_weather():
     resp = requests.get(BASE_URL, params=params, timeout=10)
     resp.raise_for_status()
     return resp.json()
+
+
+# ---------------------------------------------------------------------------
+# Rendering
+# ---------------------------------------------------------------------------
+
+BLACK = 0
+WHITE = 255
+
+
+def _load_fonts(fontdir):
+    path = os.path.join(fontdir, 'Font.ttc')
+    return {
+        15: ImageFont.truetype(path, 15),
+        20: ImageFont.truetype(path, 20),
+        22: ImageFont.truetype(path, 22),
+        35: ImageFont.truetype(path, 35),
+        60: ImageFont.truetype(path, 60),
+    }
+
+
+def _center_text(draw, cx, y, text, font):
+    bbox = font.getbbox(text)
+    w = bbox[2] - bbox[0]
+    draw.text((cx - w // 2, y), text, font=font, fill=BLACK)
+
+
+def _paste_icon(img, icon_path, cx, y, size):
+    """Paste an icon (size×size) centered horizontally at cx, top at y."""
+    if icon_path is None:
+        return
+    icon = Image.open(icon_path).resize((size, size)).convert('1')
+    img.paste(icon, (cx - size // 2, y))
+
+
+def _draw_left_panel(draw, img, weather, icondir, fonts):
+    c = weather['current']
+    t = weather['today']
+    now = datetime.now()
+
+    x_label = 12
+    x_value = 175
+
+    # Location header
+    draw.text((x_label, 8), config.LOCATION, font=fonts[22], fill=BLACK)
+
+    # Condition description
+    desc = wmo_description(c['weather_code'])
+    draw.text((x_label, 36), desc, font=fonts[15], fill=BLACK)
+
+    # Icon (100×100) top-left, temperature to the right
+    icon_path = get_icon_path(c['weather_code'], c['is_day'], icondir)
+    _paste_icon(img, icon_path, cx=60, y=58, size=100)
+    draw.text((130, 68), f'{round(c["temperature"])}°F', font=fonts[60], fill=BLACK)
+
+    # Details grid
+    pairs = [
+        ('Feels like', f'{round(c["feels_like"])}°F'),
+        ('Wind',       f'{round(c["wind_speed"])} mph'),
+        ('Humidity',   f'{c["humidity"]}%'),
+        ('High / Low', f'{round(t["high"])}° / {round(t["low"])}°'),
+        ('Precip',     f'{t["precip_pct"]}%'),
+    ]
+    y = 170
+    for label, value in pairs:
+        draw.text((x_label, y), label, font=fonts[15], fill=BLACK)
+        draw.text((x_value, y), value, font=fonts[15], fill=BLACK)
+        y += 21
+
+    # Date/time stamp at bottom of left panel
+    date_str = now.strftime('%a %b %d  %I:%M %p').replace(' 0', '  ')
+    draw.text((x_label, 274), date_str, font=fonts[15], fill=BLACK)
+
+
+def _draw_hourly_panel(draw, img, weather, icondir, fonts):
+    draw.text((315, 8), 'NEXT 8 HOURS', font=fonts[15], fill=BLACK)
+
+    for i, h in enumerate(weather['hourly']):
+        cx = 337 + i * 61
+        _center_text(draw, cx, 28, h['time'], fonts[15])
+        icon_path = get_icon_path(h['weather_code'], is_day=1, icon_dir=icondir)
+        _paste_icon(img, icon_path, cx=cx, y=48, size=40)
+        _center_text(draw, cx, 93,  f'{round(h["temp"])}°',       fonts[20])
+        _center_text(draw, cx, 115, f'{h["precip_pct"]}%',         fonts[15])
+        _center_text(draw, cx, 135, f'{round(h["wind_speed"])}mph', fonts[15])
+
+    # Divider below hourly columns, above stats bar
+    draw.line([(307, 157), (799, 157)], fill=BLACK, width=1)
+
+
+def _draw_stats_bar(draw, weather, fonts):
+    c = weather['current']
+    t = weather['today']
+
+    items = [
+        f'UV {round(c["uv_index"])} {uv_label(c["uv_index"])}',
+        f'Vis {round(c["visibility_mi"])}mi',
+        f'Dew {round(c["dew_point"])}°F',
+        f'↑{t["sunrise"]}',
+        f'↓{t["sunset"]}',
+    ]
+    # 5 items across right panel width 493px, centers at 356,455,554,653,752
+    for i, text in enumerate(items):
+        cx = 356 + i * 99
+        _center_text(draw, cx, 200, text, fonts[15])
+
+
+def _draw_daily_panel(draw, img, weather, icondir, fonts):
+    draw.text((12, 298), '7-DAY FORECAST', font=fonts[15], fill=BLACK)
+
+    for i, d in enumerate(weather['daily']):
+        cx = 57 + i * 114
+
+        # Day name — underline today
+        day_str = d['day']
+        bbox = fonts[15].getbbox(day_str)
+        w = bbox[2] - bbox[0]
+        x = cx - w // 2
+        draw.text((x, 318), day_str, font=fonts[15], fill=BLACK)
+        if d['is_today']:
+            draw.line([(x, 336), (x + w, 336)], fill=BLACK, width=1)
+
+        icon_path = get_icon_path(d['weather_code'], is_day=1, icon_dir=icondir)
+        _paste_icon(img, icon_path, cx=cx, y=340, size=50)
+
+        _center_text(draw, cx, 394, f'{round(d["high"])}°', fonts[20])
+        _center_text(draw, cx, 416, f'{round(d["low"])}°',  fonts[15])
+        _center_text(draw, cx, 436, f'{d["precip_pct"]}%',  fonts[15])
+
+
+def render(weather, picdir, icondir, fontdir):
+    """Render weather data to an 800×480 1-bit PIL Image."""
+    img = Image.new('1', (800, 480), WHITE)
+    draw = ImageDraw.Draw(img)
+    fonts = _load_fonts(fontdir)
+
+    # Structural dividers
+    draw.line([(305, 0),   (305, 293)], fill=BLACK, width=2)  # vertical
+    draw.line([(0,   293), (800, 293)], fill=BLACK, width=2)  # horizontal main
+
+    _draw_left_panel(draw, img, weather, icondir, fonts)
+    _draw_hourly_panel(draw, img, weather, icondir, fonts)
+    _draw_stats_bar(draw, weather, fonts)
+    _draw_daily_panel(draw, img, weather, icondir, fonts)
+
+    return img
