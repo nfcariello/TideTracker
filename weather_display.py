@@ -269,14 +269,17 @@ def _draw_left_panel(draw, img, weather, icondir, fonts):
     _paste_icon(img, icon_path, cx=58, y=60, size=85)
     draw.text((125, 65), f'{round(c["temperature"])}°F', font=fonts[60], fill=BLACK)
 
-    # Details — font18, 22px line height, sun row combined
+    # Details — font18, 22px line height, sun row combined.
+    # Sun times drop AM/PM to fit; arrows make morning/evening obvious.
+    sunrise_short = t['sunrise'].rsplit(' ', 1)[0]   # "6:12 AM" -> "6:12"
+    sunset_short  = t['sunset'].rsplit(' ', 1)[0]
     pairs = [
         ('Feels like', f'{round(c["feels_like"])}°F'),
         ('Wind',       f'{round(c["wind_speed"])} mph'),
         ('Humidity',   f'{c["humidity"]}%'),
         ('High / Low', f'{round(t["high"])}° / {round(t["low"])}°'),
         ('Precip',     f'{t["precip_pct"]}%'),
-        ('Sun',        f'↑ {t["sunrise"]}  ↓ {t["sunset"]}'),
+        ('Sun',        f'↑ {sunrise_short}   ↓ {sunset_short}'),
     ]
     y = 158
     for label, value in pairs:
@@ -314,28 +317,28 @@ def _draw_hourly_panel(draw, img, weather, icondir, fonts):
 
 
 def _draw_daily_panel(draw, img, weather, icondir, fonts):
-    draw.text((12, 300), '7-DAY FORECAST', font=fonts[15], fill=BLACK)
+    draw.text((12, 298), '7-DAY FORECAST', font=fonts[15], fill=BLACK)
 
     for i, d in enumerate(weather['daily']):
         cx = 57 + i * 114
 
-        # Day name — bumped to font20, underline today
+        # Day name (font20), underline today
         day_str = d['day']
         bbox = fonts[20].getbbox(day_str)
         w = bbox[2] - bbox[0]
         x = cx - w // 2
-        draw.text((x, 320), day_str, font=fonts[20], fill=BLACK)
+        draw.text((x, 316), day_str, font=fonts[20], fill=BLACK)
         if d['is_today']:
-            draw.line([(x, 343), (x + w, 343)], fill=BLACK, width=1)
+            draw.line([(x, 339), (x + w, 339)], fill=BLACK, width=1)
 
-        # Bigger icon (60×60 vs 50×50)
+        # Icon (60×60)
         icon_path = get_icon_path(d['weather_code'], is_day=1, icon_dir=icondir)
-        _paste_icon(img, icon_path, cx=cx, y=348, size=60)
+        _paste_icon(img, icon_path, cx=cx, y=343, size=60)
 
-        # Bumped temps and precip
-        _center_text(draw, cx, 414, f'{round(d["high"])}°', fonts[24])
-        _center_text(draw, cx, 444, f'{round(d["low"])}°',  fonts[18])
-        _center_text(draw, cx, 466, f'{d["precip_pct"]}%',  fonts[15])
+        # Temps and precip — tightened vertical spacing so precip fits in 480
+        _center_text(draw, cx, 408, f'{round(d["high"])}°', fonts[24])
+        _center_text(draw, cx, 437, f'{round(d["low"])}°',  fonts[18])
+        _center_text(draw, cx, 459, f'{d["precip_pct"]}%',  fonts[15])
 
 
 def render(weather, picdir, icondir, fontdir):
