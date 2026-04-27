@@ -361,3 +361,53 @@ def write_to_display(image, epd=None, picdir=None):
     epd.init()
     epd.display(epd.getbuffer(image))
     epd.sleep()
+
+
+# ---------------------------------------------------------------------------
+# Main loop
+# ---------------------------------------------------------------------------
+
+def main():
+    logging.info('WeatherDisplay starting.')
+
+    epd = None
+    if EPD_AVAILABLE:
+        epd = epd7in5_V2.EPD()
+        epd.init()
+        epd.Clear()
+        logging.info('E-ink display initialized and cleared.')
+    else:
+        logging.info('No e-ink module — running in dev mode (saves PNG).')
+
+    last_fingerprint = None
+    retry_delay = 1800
+
+    while True:
+        try:
+            raw = fetch_weather()
+            weather = parse_weather(raw)
+            fingerprint = compute_fingerprint(weather)
+
+            if fingerprint != last_fingerprint:
+                logging.info('Weather changed — updating display.')
+                image = render(weather, PICDIR, ICONDIR, FONTDIR)
+                write_to_display(image, epd=epd, picdir=PICDIR)
+                last_fingerprint = fingerprint
+            else:
+                logging.info('No weather change — display unchanged.')
+
+            retry_delay = 1800
+
+        except requests.RequestException as exc:
+            logging.error(f'API error: {exc} — retrying in 5 minutes.')
+            retry_delay = 300
+
+        except Exception as exc:
+            logging.error(f'Unexpected error: {exc} — retrying in 5 minutes.')
+            retry_delay = 300
+
+        time.sleep(retry_delay)
+
+
+if __name__ == '__main__':
+    main()
