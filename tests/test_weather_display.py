@@ -89,3 +89,55 @@ def test_parse_weather_today_sunrise_sunset():
     assert result['today']['sunrise'] == '6:12 AM'
     assert result['today']['sunset'] == '7:48 PM'
     assert result['today']['precip_pct'] == 5
+
+
+# ---------------------------------------------------------------------------
+# Icon mapping + descriptions
+# ---------------------------------------------------------------------------
+
+def test_get_icon_path_clear_day():
+    from weather_display import get_icon_path
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    icondir = os.path.join(base_dir, 'images', 'icon')
+    path = get_icon_path(0, is_day=1, icon_dir=icondir)
+    assert path is not None
+    assert path.endswith('01d.png')
+    assert os.path.exists(path)
+
+
+def test_get_icon_path_thunderstorm_night():
+    from weather_display import get_icon_path
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    icondir = os.path.join(base_dir, 'images', 'icon')
+    path = get_icon_path(95, is_day=0, icon_dir=icondir)
+    assert path is not None
+    assert path.endswith('11n.png')
+
+
+def test_get_icon_path_unknown_code_returns_default():
+    from weather_display import get_icon_path
+    base_dir = os.path.dirname(os.path.dirname(__file__))
+    icondir = os.path.join(base_dir, 'images', 'icon')
+    path = get_icon_path(999, is_day=1, icon_dir=icondir)
+    assert path is not None
+
+
+def test_wmo_description_known():
+    from weather_display import wmo_description
+    assert wmo_description(0) == 'Clear Sky'
+    assert wmo_description(61) == 'Light Rain'
+    assert wmo_description(95) == 'Thunderstorm'
+
+
+def test_wmo_description_unknown():
+    from weather_display import wmo_description
+    assert wmo_description(999) == 'Unknown'
+
+
+def test_uv_label():
+    from weather_display import uv_label
+    assert uv_label(0) == 'Low'
+    assert uv_label(3) == 'Mod'
+    assert uv_label(6) == 'High'
+    assert uv_label(8) == 'V.High'
+    assert uv_label(11) == 'Extreme'

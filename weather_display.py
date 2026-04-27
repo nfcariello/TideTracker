@@ -77,6 +77,7 @@ def parse_weather(raw, now=None):
 
     return {
         'current': {
+
             'temperature': current_raw['temperature_2m'],
             'feels_like': current_raw['apparent_temperature'],
             'humidity': current_raw['relative_humidity_2m'],
@@ -97,3 +98,59 @@ def parse_weather(raw, now=None):
         'hourly': hourly,
         'daily': daily,
     }
+
+
+# ---------------------------------------------------------------------------
+# WMO weather code mappings
+# ---------------------------------------------------------------------------
+
+WMO_TO_OWM = {
+    0: '01', 1: '02', 2: '02', 3: '04',
+    45: '50', 48: '50',
+    51: '09', 53: '09', 55: '09', 56: '09', 57: '09',
+    61: '10', 63: '10', 65: '10', 66: '10', 67: '10',
+    71: '13', 73: '13', 75: '13', 77: '13',
+    80: '09', 81: '09', 82: '09',
+    85: '13', 86: '13',
+    95: '11', 96: '11', 99: '11',
+}
+
+WMO_DESCRIPTIONS = {
+    0: 'Clear Sky', 1: 'Mainly Clear', 2: 'Partly Cloudy', 3: 'Overcast',
+    45: 'Foggy', 48: 'Icy Fog',
+    51: 'Light Drizzle', 53: 'Drizzle', 55: 'Heavy Drizzle',
+    56: 'Freezing Drizzle', 57: 'Heavy Freezing Drizzle',
+    61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain',
+    66: 'Freezing Rain', 67: 'Heavy Freezing Rain',
+    71: 'Light Snow', 73: 'Snow', 75: 'Heavy Snow', 77: 'Snow Grains',
+    80: 'Light Showers', 81: 'Showers', 82: 'Heavy Showers',
+    85: 'Snow Showers', 86: 'Heavy Snow Showers',
+    95: 'Thunderstorm', 96: 'Thunderstorm w/ Hail', 99: 'Severe Thunderstorm',
+}
+
+
+def get_icon_path(wmo_code, is_day, icon_dir):
+    """Return absolute path to the OWM icon PNG for a WMO code, or None."""
+    base = WMO_TO_OWM.get(wmo_code, '02')
+    suffix = 'd' if is_day else 'n'
+    path = os.path.join(icon_dir, f'{base}{suffix}.png')
+    if os.path.exists(path):
+        return path
+    fallback = os.path.join(icon_dir, f'{base}d.png')
+    return fallback if os.path.exists(fallback) else None
+
+
+def wmo_description(code):
+    return WMO_DESCRIPTIONS.get(code, 'Unknown')
+
+
+def uv_label(uv):
+    if uv < 3:
+        return 'Low'
+    if uv < 6:
+        return 'Mod'
+    if uv < 8:
+        return 'High'
+    if uv < 11:
+        return 'V.High'
+    return 'Extreme'
