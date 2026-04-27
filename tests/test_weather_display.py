@@ -16,6 +16,7 @@ def _make_api_response():
             'apparent_temperature': 68.3,
             'relative_humidity_2m': 62,
             'wind_speed_10m': 8.2,
+            'wind_direction_10m': 315,
             'weather_code': 2,
             'is_day': 1,
             'uv_index': 3.0,
@@ -150,6 +151,21 @@ def test_uv_label():
     assert uv_label(6) == 'High'
     assert uv_label(8) == 'V.High'
     assert uv_label(11) == 'Extreme'
+
+
+def test_compass_direction():
+    from weather_display import compass_direction
+    assert compass_direction(0)   == 'N'
+    assert compass_direction(45)  == 'NE'
+    assert compass_direction(90)  == 'E'
+    assert compass_direction(135) == 'SE'
+    assert compass_direction(180) == 'S'
+    assert compass_direction(225) == 'SW'
+    assert compass_direction(270) == 'W'
+    assert compass_direction(315) == 'NW'
+    assert compass_direction(359) == 'N'    # wraps back to N
+    assert compass_direction(22)  == 'N'    # boundary
+    assert compass_direction(23)  == 'NE'   # just past boundary
 
 
 # ---------------------------------------------------------------------------

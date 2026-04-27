@@ -89,6 +89,7 @@ def parse_weather(raw, now=None):
             'feels_like': current_raw['apparent_temperature'],
             'humidity': current_raw['relative_humidity_2m'],
             'wind_speed': current_raw['wind_speed_10m'],
+            'wind_direction': current_raw.get('wind_direction_10m', 0),
             'weather_code': current_raw['weather_code'],
             'is_day': current_raw['is_day'],
             'uv_index': current_raw['uv_index'],
@@ -152,6 +153,15 @@ def wmo_description(code):
     return WMO_DESCRIPTIONS.get(code, 'Unknown')
 
 
+_COMPASS_8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+
+
+def compass_direction(degrees):
+    """Map wind direction degrees (0-360, meteorological 'from' direction) to 8-point compass."""
+    idx = int((degrees + 22.5) // 45) % 8
+    return _COMPASS_8[idx]
+
+
 def uv_label(uv):
     if uv < 3:
         return 'Low'
@@ -191,7 +201,8 @@ def fetch_weather():
         'longitude': config.LONGITUDE,
         'current': (
             'temperature_2m,apparent_temperature,relative_humidity_2m,'
-            'wind_speed_10m,weather_code,is_day,uv_index,visibility,dew_point_2m'
+            'wind_speed_10m,wind_direction_10m,'
+            'weather_code,is_day,uv_index,visibility,dew_point_2m'
         ),
         'hourly': 'temperature_2m,weather_code,precipitation_probability,wind_speed_10m',
         'daily': (
@@ -274,9 +285,10 @@ def _draw_left_panel(draw, img, weather, icondir, fonts):
     # Compact AM/PM as 'a'/'p' to fit within the panel.
     sunrise_short = t['sunrise'].replace(' AM', 'a').replace(' PM', 'p')
     sunset_short  = t['sunset'].replace(' AM', 'a').replace(' PM', 'p')
+    wind_str = f'{round(c["wind_speed"])} mph {compass_direction(c["wind_direction"])}'
     pairs = [
         ('Feels like', f'{round(c["feels_like"])}°F'),
-        ('Wind',       f'{round(c["wind_speed"])} mph'),
+        ('Wind',       wind_str),
         ('Humidity',   f'{c["humidity"]}%'),
         ('High / Low', f'{round(t["high"])}° / {round(t["low"])}°'),
         ('Precip',     f'{t["precip_pct"]}%'),
