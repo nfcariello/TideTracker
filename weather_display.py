@@ -38,12 +38,17 @@ def parse_weather(raw, now=None):
     hourly_raw = raw['hourly']
     daily_raw = raw['daily']
 
-    # Find the index of the current hour in the hourly array
-    current_hour_str = now.strftime('%Y-%m-%dT%H:00')
+    # Use API current.time (already in API timezone) to find the hour index.
+    # This avoids the Pi's system clock/timezone affecting forecast alignment.
     try:
-        hour_idx = hourly_raw['time'].index(current_hour_str)
+        hour_idx = hourly_raw['time'].index(current_raw['time'])
     except ValueError:
-        hour_idx = 0
+        # Fall back to the now-based lookup if the API time isn't an exact match
+        current_hour_str = now.strftime('%Y-%m-%dT%H:00')
+        try:
+            hour_idx = hourly_raw['time'].index(current_hour_str)
+        except ValueError:
+            hour_idx = 0
 
     # Slice 8 hours starting from current hour
     hourly = []
@@ -244,72 +249,63 @@ def _draw_left_panel(draw, img, weather, icondir, fonts):
     x_label = 12
     x_value = 175
 
-    # Location header
+    # Location header with date/time on the same line
     draw.text((x_label, 8), config.LOCATION, font=fonts[22], fill=BLACK)
+    date_str = dt.strftime('%a %I:%M %p').replace(' 0', ' ')
+    bbox = fonts[15].getbbox(date_str)
+    draw.text((300 - (bbox[2] - bbox[0]) - 6, 16), date_str, font=fonts[15], fill=BLACK)
 
     # Condition description
     desc = wmo_description(c['weather_code'])
-    draw.text((x_label, 36), desc, font=fonts[15], fill=BLACK)
+    draw.text((x_label, 38), desc, font=fonts[15], fill=BLACK)
 
     # Icon (100×100) top-left, temperature to the right
     icon_path = get_icon_path(c['weather_code'], c['is_day'], icondir)
-    _paste_icon(img, icon_path, cx=60, y=58, size=100)
-    draw.text((130, 68), f'{round(c["temperature"])}°F', font=fonts[60], fill=BLACK)
+    _paste_icon(img, icon_path, cx=60, y=60, size=100)
+    draw.text((130, 70), f'{round(c["temperature"])}°F', font=fonts[60], fill=BLACK)
 
-    # Details grid
+    # Details grid — all consistent font15, including sunrise/sunset
     pairs = [
         ('Feels like', f'{round(c["feels_like"])}°F'),
         ('Wind',       f'{round(c["wind_speed"])} mph'),
         ('Humidity',   f'{c["humidity"]}%'),
         ('High / Low', f'{round(t["high"])}° / {round(t["low"])}°'),
         ('Precip',     f'{t["precip_pct"]}%'),
+        ('Sunrise',    f'↑ {t["sunrise"]}'),
+        ('Sunset',     f'↓ {t["sunset"]}'),
     ]
-    y = 170
+    y = 167
     for label, value in pairs:
         draw.text((x_label, y), label, font=fonts[15], fill=BLACK)
         draw.text((x_value, y), value, font=fonts[15], fill=BLACK)
-        y += 21
-
-    # Date/time from API response (already Eastern time)
-    date_str = dt.strftime('%a %b %d  %I:%M %p').replace(' 0', '  ')
-    draw.text((x_label, 274), date_str, font=fonts[15], fill=BLACK)
+        y += 18
 
 
 def _draw_hourly_panel(draw, img, weather, icondir, fonts):
+    """Right panel — 8 hourly columns, full available height, no stats bar."""
     draw.text((315, 8), 'NEXT 8 HOURS', font=fonts[15], fill=BLACK)
 
+    # Column centers: 337 + i*61 for i=0..7
+    # Available content area: y=30 to y=290 (260px)
     for i, h in enumerate(weather['hourly']):
         cx = 337 + i * 61
-        _center_text(draw, cx, 28, h['time'], fonts[15])
-        icon_path = get_icon_path(h['weather_code'], is_day=1, icon_dir=icondir)
-        _paste_icon(img, icon_path, cx=cx, y=48, size=40)
-        _center_text(draw, cx, 93,  f'{round(h["temp"])}°',       fonts[20])
-        _center_text(draw, cx, 115, f'{h["precip_pct"]}%',         fonts[15])
-        _center_text(draw, cx, 135, f'{round(h["wind_speed"])}mph', fonts[15])
 
-    # Divider below hourly columns, above stats bar
-    draw.line([(307, 157), (799, 157)], fill=BLACK, width=1)
+        # Time label (font20, larger now)
+        _center_text(draw, cx, 32, h['time'], fonts[20])
 
+        # Icon — bumped from 40 to 60 for legibility
+        icon_path = get_icon_path(h['weather_code'], is_day=h.get('is_day', 1), icon_dir=icondir)
+        _paste_icon(img, icon_path, cx=cx, y=62, size=60)
 
-def _draw_stats_bar(draw, weather, fonts):
-    c = weather['current']
-    t = weather['today']
+        # Temperature (font35 — clearly the most important hourly datum)
+        _center_text(draw, cx, 132, f'{round(h["temp"])}°', fonts[35])
 
-    # Stats area: y=157 to y=293 (136px). Center two rows within it.
-    # Label row (small) at y=196, value row (medium) at y=218
-    items = [
-        ('UV INDEX',    f'{round(c["uv_index"])} {uv_label(c["uv_index"])}'),
-        ('VISIBILITY',  f'{round(c["visibility_mi"])} mi'),
-        ('DEW POINT',   f'{round(c["dew_point"])}°F'),
-        ('SUNRISE',     f'↑ {t["sunrise"]}'),
-        ('SUNSET',      f'↓ {t["sunset"]}'),
-    ]
-    # 5 items across right panel (x=307–799, width=493)
-    # centers at 356, 455, 554, 653, 752
-    for i, (label, value) in enumerate(items):
-        cx = 356 + i * 99
-        _center_text(draw, cx, 196, label, fonts[15])
-        _center_text(draw, cx, 218, value, fonts[20])
+        # Precipitation %
+        _center_text(draw, cx, 184, f'{h["precip_pct"]}%', fonts[20])
+
+        # Wind speed
+        _center_text(draw, cx, 213, f'{round(h["wind_speed"])} mph', fonts[15])
+
 
 
 def _draw_daily_panel(draw, img, weather, icondir, fonts):
@@ -347,7 +343,6 @@ def render(weather, picdir, icondir, fontdir):
 
     _draw_left_panel(draw, img, weather, icondir, fonts)
     _draw_hourly_panel(draw, img, weather, icondir, fonts)
-    _draw_stats_bar(draw, weather, fonts)
     _draw_daily_panel(draw, img, weather, icondir, fonts)
 
     return img
