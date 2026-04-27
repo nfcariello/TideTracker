@@ -167,3 +167,35 @@ def compute_fingerprint(weather):
         str(weather['current']['weather_code']),
     ] + [str(round(h['temp'])) for h in weather['hourly']]
     return hashlib.md5(','.join(parts).encode()).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Data fetching
+# ---------------------------------------------------------------------------
+
+BASE_URL = 'https://api.open-meteo.com/v1/forecast'
+
+
+def fetch_weather():
+    """Fetch current, hourly, and daily weather from Open-Meteo."""
+    params = {
+        'latitude': config.LATITUDE,
+        'longitude': config.LONGITUDE,
+        'current': (
+            'temperature_2m,apparent_temperature,relative_humidity_2m,'
+            'wind_speed_10m,weather_code,is_day,uv_index,visibility,dew_point_2m'
+        ),
+        'hourly': 'temperature_2m,weather_code,precipitation_probability,wind_speed_10m',
+        'daily': (
+            'temperature_2m_max,temperature_2m_min,weather_code,'
+            'precipitation_probability_max,sunrise,sunset'
+        ),
+        'temperature_unit': 'fahrenheit',
+        'wind_speed_unit': 'mph',
+        'precipitation_unit': 'inch',
+        'timezone': 'America/New_York',
+        'forecast_days': 7,
+    }
+    resp = requests.get(BASE_URL, params=params, timeout=10)
+    resp.raise_for_status()
+    return resp.json()

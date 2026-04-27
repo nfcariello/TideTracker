@@ -174,3 +174,49 @@ def test_fingerprint_changes_on_code_change():
     modified['current']['weather_code'] = 61
     weather_b = parse_weather(modified, now=now)
     assert compute_fingerprint(weather_a) != compute_fingerprint(weather_b)
+
+
+# ---------------------------------------------------------------------------
+# Weather fetching
+# ---------------------------------------------------------------------------
+
+def test_fetch_weather_calls_correct_url(monkeypatch):
+    import requests as req
+    from weather_display import fetch_weather
+    captured = {}
+
+    def mock_get(url, params=None, timeout=None):
+        captured['url'] = url
+        captured['params'] = params
+        class FakeResp:
+            status_code = 200
+            def raise_for_status(self): pass
+            def json(self): return SAMPLE_RESPONSE
+        return FakeResp()
+
+    monkeypatch.setattr(req, 'get', mock_get)
+    result = fetch_weather()
+
+    assert captured['url'] == 'https://api.open-meteo.com/v1/forecast'
+    assert captured['params']['latitude'] == 40.6734
+    assert captured['params']['longitude'] == -73.5132
+    assert captured['params']['temperature_unit'] == 'fahrenheit'
+    assert 'temperature_2m' in captured['params']['current']
+    assert result == SAMPLE_RESPONSE
+
+
+def test_fetch_weather_raises_on_http_error(monkeypatch):
+    import requests as req
+    from weather_display import fetch_weather
+
+    def mock_get(url, params=None, timeout=None):
+        class FakeResp:
+            status_code = 500
+            def raise_for_status(self):
+                raise req.HTTPError('500 Server Error')
+            def json(self): return {}
+        return FakeResp()
+
+    monkeypatch.setattr(req, 'get', mock_get)
+    with pytest.raises(req.HTTPError):
+        fetch_weather()
