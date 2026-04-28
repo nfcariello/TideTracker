@@ -4,7 +4,7 @@ import time
 import hashlib
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
@@ -30,27 +30,34 @@ FONTDIR = os.path.join(BASE_DIR, 'font')
 # ---------------------------------------------------------------------------
 
 def parse_weather(raw, now=None):
-    """Parse Open-Meteo API JSON into a structured display dict."""
+    """Parse Open-Meteo API JSON into a structured display dict.
+
+    `now` should be the current wall-clock time in the API's timezone.
+    If not provided, it's computed from `datetime.utcnow()` plus the API's
+    `utc_offset_seconds`. This is timezone-correct regardless of the Pi's
+    own system clock setting.
+    """
     if now is None:
-        now = datetime.now()
+        utc_offset = raw.get('utc_offset_seconds', 0)
+        now = datetime.utcnow() + timedelta(seconds=utc_offset)
 
     current_raw = raw['current']
     hourly_raw = raw['hourly']
     daily_raw = raw['daily']
 
-    # Use API current.time (already in API timezone) to find the hour index.
-    # This avoids the Pi's system clock/timezone affecting forecast alignment.
+    # Find current-hour index from wall clock now (not API current.time, which
+    # represents the most recent observation interval and lags 0-59 minutes).
+    current_hour_str = now.strftime('%Y-%m-%dT%H:00')
     try:
-        hour_idx = hourly_raw['time'].index(current_raw['time'])
+        hour_idx = hourly_raw['time'].index(current_hour_str)
     except ValueError:
-        # Fall back to the now-based lookup if the API time isn't an exact match
-        current_hour_str = now.strftime('%Y-%m-%dT%H:00')
+        # Last-resort fallback (only if hourly array doesn't contain this hour)
         try:
-            hour_idx = hourly_raw['time'].index(current_hour_str)
+            hour_idx = hourly_raw['time'].index(current_raw['time'])
         except ValueError:
             hour_idx = 0
 
-    # Slice 8 hours starting from the NEXT hour (not the current one)
+    # Slice 8 hours starting from the NEXT hour (skip the in-progress hour)
     start = hour_idx + 1
     hourly = []
     for i in range(start, min(start + 8, len(hourly_raw['time']))):
@@ -80,8 +87,9 @@ def parse_weather(raw, now=None):
     sunset_dt = datetime.fromisoformat(daily_raw['sunset'][0])
     # Visibility: Open-Meteo returns meters, convert to miles
     visibility_mi = current_raw['visibility'] / 1609.34
-    # Use the API's current.time (already in local/Eastern timezone) for display
-    display_time = datetime.fromisoformat(current_raw['time'])
+    # display_time is the actual wall clock now (computed from UTC + API offset),
+    # not the API's observation hour, so the header reflects "right now".
+    display_time = now
 
     return {
         'current': {

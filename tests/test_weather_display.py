@@ -10,6 +10,7 @@ def _make_api_response():
     start = datetime(2024, 4, 27, 0, 0)
     times = [(start + timedelta(hours=i)).strftime('%Y-%m-%dT%H:00') for i in range(168)]
     return {
+        'utc_offset_seconds': -14400,   # EDT
         'current': {
             'time': '2024-04-27T14:00',
             'temperature_2m': 72.1,
@@ -93,12 +94,76 @@ def test_parse_weather_today_sunrise_sunset():
     assert result['today']['precip_pct'] == 5
 
 
-def test_parse_weather_display_time_from_api():
+def test_parse_weather_display_time_uses_actual_now():
+    """display_time should be the actual current wall clock time, not the
+    API's observation hour (which lags by 0-59 minutes)."""
     from weather_display import parse_weather
     now = datetime(2024, 4, 27, 14, 30)
     result = parse_weather(SAMPLE_RESPONSE, now=now)
-    # display_time should come from current.time in the API (Eastern), not datetime.now()
-    assert result['display_time'] == datetime(2024, 4, 27, 14, 0)
+    assert result['display_time'] == datetime(2024, 4, 27, 14, 30)
+
+
+def test_parse_weather_falls_back_to_utc_plus_offset_when_no_now():
+    """When no 'now' is passed, parse_weather must derive 'now' from
+    utc_offset_seconds in the API response (NOT from the Pi's local clock,
+    which may be in a different timezone like BST)."""
+    from weather_display import parse_weather
+    # Compare against utcnow + offset; allow ±5 seconds for clock drift.
+    expected = datetime.utcnow() + timedelta(seconds=SAMPLE_RESPONSE['utc_offset_seconds'])
+    result = parse_weather(SAMPLE_RESPONSE)
+    delta = abs((result['display_time'] - expected).total_seconds())
+    assert delta < 5, f'display_time off by {delta}s'
+
+
+# ---------------------------------------------------------------------------
+# Hour-boundary tests: verify "next 6 hours" is correct at every part of the day,
+# including AM/PM boundaries and midnight crossings.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize('hour, minute, expected_first, expected_last_of_six', [
+    ( 0, 30,  '1 AM',  '6 AM'),    # just past midnight
+    ( 6,  0,  '7 AM',  '12 PM'),   # morning crossing into noon
+    (10, 45, '11 AM',  '4 PM'),    # late morning crossing into PM
+    (11, 30, '12 PM',  '5 PM'),    # 11 AM crossing noon
+    (12, 15,  '1 PM',  '6 PM'),    # noon
+    (14, 30,  '3 PM',  '8 PM'),    # afternoon (matches user's earlier scenario)
+    (18,  0,  '7 PM', '12 AM'),    # 6 PM — first hour 7PM, last 12AM (the user's scenario)
+    (19, 30,  '8 PM',  '1 AM'),    # evening crossing midnight
+    (22,  0, '11 PM',  '4 AM'),    # late evening crossing midnight
+    (23, 45, '12 AM',  '5 AM'),    # last hour of day
+])
+def test_parse_weather_hourly_at_various_times(hour, minute, expected_first, expected_last_of_six):
+    """Verify the next-6-hours logic gives the correct first and 6th label
+    across every hour of the day, including midnight crossings."""
+    from weather_display import parse_weather
+    now = datetime(2024, 4, 27, hour, minute)
+    result = parse_weather(SAMPLE_RESPONSE, now=now)
+    six = result['hourly'][:6]
+    assert six[0]['time'] == expected_first, \
+        f'At {hour:02d}:{minute:02d}, expected first={expected_first}, got {six[0]["time"]}'
+    assert six[5]['time'] == expected_last_of_six, \
+        f'At {hour:02d}:{minute:02d}, expected sixth={expected_last_of_six}, got {six[5]["time"]}'
+
+
+def test_parse_weather_hourly_consecutive_no_gaps():
+    """The 6 displayed hours must always be 6 consecutive hours."""
+    from weather_display import parse_weather
+
+    expected_progression = {
+        '12 AM': '1 AM',  '1 AM': '2 AM',  '2 AM': '3 AM',  '3 AM': '4 AM',
+        '4 AM':  '5 AM',  '5 AM': '6 AM',  '6 AM': '7 AM',  '7 AM': '8 AM',
+        '8 AM':  '9 AM',  '9 AM':'10 AM', '10 AM':'11 AM', '11 AM':'12 PM',
+        '12 PM': '1 PM',  '1 PM': '2 PM',  '2 PM': '3 PM',  '3 PM': '4 PM',
+        '4 PM':  '5 PM',  '5 PM': '6 PM',  '6 PM': '7 PM',  '7 PM': '8 PM',
+        '8 PM':  '9 PM',  '9 PM':'10 PM', '10 PM':'11 PM', '11 PM':'12 AM',
+    }
+    for h in range(0, 22):  # avoid wrapping past fixture's 168-hour window
+        now = datetime(2024, 4, 27, h, 30)
+        result = parse_weather(SAMPLE_RESPONSE, now=now)
+        six = [hh['time'] for hh in result['hourly'][:6]]
+        for i in range(5):
+            assert expected_progression[six[i]] == six[i + 1], \
+                f'At hour {h}: gap between {six[i]} and {six[i+1]}'
 
 
 # ---------------------------------------------------------------------------
